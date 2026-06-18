@@ -1,5 +1,6 @@
 import psutil
 from app.core.resolver import get_process_name
+from app.core.risk_engine import analyze_port
 
 ALLOWED_STATUSES = {
     "LISTEN",
@@ -34,13 +35,17 @@ def get_connections():
         seen.add(key)
 
         try:
+            risk = analyze_port(conn.laddr.port)
+
             connections.append(
                 {
                     "port": conn.laddr.port,
                     "pid": conn.pid,
                     "process": get_process_name(conn.pid),
                     "status": conn.status,
-                    "test": "YOOZHAA"
+                    "severity": risk["severity"],
+                    "risk_score": risk["risk_score"],
+                    "reason": risk["reason"]
                 }
             )
 
