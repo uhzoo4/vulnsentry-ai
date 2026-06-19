@@ -1,10 +1,17 @@
 import psutil
-from app.core.resolver import get_process_name
+import socket
+from app.core.resolver import resolve_process_details
 from app.core.risk_engine import analyze_port
 
 ALLOWED_STATUSES = {
     "LISTEN",
     "ESTABLISHED"
+}
+
+STATUS_MAPPING = {
+    "LISTEN": "listening",
+    "ESTABLISHED": "established",
+    "TIME_WAIT": "time_wait"
 }
 
 
@@ -36,20 +43,23 @@ def get_connections():
 
         try:
             risk = analyze_port(conn.laddr.port)
+            proc_name, proc_path = resolve_process_details(conn.pid)
+            protocol = "tcp" if conn.type == socket.SOCK_STREAM else "udp"
+            state = STATUS_MAPPING.get(conn.status, conn.status.lower())
 
             connections.append(
                 {
+                    "processName": proc_name,
+                    "processPid": conn.pid,
+                    "processPath": proc_path,
                     "port": conn.laddr.port,
-                    "pid": conn.pid,
-                    "process": get_process_name(conn.pid),
-                    "status": conn.status,
-                    "severity": risk["severity"],
-                    "risk_score": risk["risk_score"],
-                    "reason": risk["reason"]
+                    "protocol": protocol,
+                    "state": state,
+                    "severity": risk["severity"].lower()
                 }
             )
 
         except Exception:
             continue
 
-    return connections
+    return connections
