@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 
 interface HeroThreatCardProps {
   score: number;
@@ -21,10 +21,70 @@ export default function HeroThreatCard({
   const glowRef = useRef<HTMLDivElement | null>(null);
   const [isHovered, setIsHovered] = useState(false);
 
-  // 3D Card Tilt logic matching tools/tilt.js
+  // Target and current values for lerp calculations
+  const targetRotX = useRef(0);
+  const targetRotY = useRef(0);
+  const currentRotX = useRef(0);
+  const currentRotY = useRef(0);
+
+  const targetGlowX = useRef(0);
+  const targetGlowY = useRef(0);
+  const currentGlowX = useRef(0);
+  const currentGlowY = useRef(0);
+
+  const targetTranslateZ = useRef(0);
+  const currentTranslateZ = useRef(0);
+
+  const animFrameId = useRef<number | null>(null);
+
+  useEffect(() => {
+    const animate = (time: number) => {
+      const card = cardRef.current;
+      const glow = glowRef.current;
+      if (!card) return;
+
+      // 1. Lerping to target coordinates
+      currentRotX.current += (targetRotX.current - currentRotX.current) * 0.08;
+      currentRotY.current += (targetRotY.current - currentRotY.current) * 0.08;
+      currentTranslateZ.current += (targetTranslateZ.current - currentTranslateZ.current) * 0.08;
+
+      currentGlowX.current += (targetGlowX.current - currentGlowX.current) * 0.08;
+      currentGlowY.current += (targetGlowY.current - currentGlowY.current) * 0.08;
+
+      // 2. Slow floating motion when idle (suspended in space)
+      let floatX = 0;
+      let floatY = 0;
+      if (!isHovered) {
+        floatX = Math.sin(time * 0.0012) * 1.8;
+        floatY = Math.cos(time * 0.001) * 1.8;
+      }
+
+      const finalRotX = currentRotX.current + floatX;
+      const finalRotY = currentRotY.current + floatY;
+
+      // Apply transform
+      card.style.transform = `perspective(1000px) rotateY(${finalRotY}deg) rotateX(${finalRotX}deg) translateZ(${currentTranslateZ.current}px)`;
+
+      // Render glowing spotlight overlay
+      if (glow && isHovered) {
+        glow.style.background = `radial-gradient(circle 180px at ${currentGlowX.current}px ${currentGlowY.current}px, rgba(255, 255, 255, 0.04), transparent 80%)`;
+      } else if (glow) {
+        glow.style.background = "transparent";
+      }
+
+      animFrameId.current = requestAnimationFrame(animate);
+    };
+
+    animFrameId.current = requestAnimationFrame(animate);
+    return () => {
+      if (animFrameId.current) {
+        cancelAnimationFrame(animFrameId.current);
+      }
+    };
+  }, [isHovered]);
+
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     const card = cardRef.current;
-    const glow = glowRef.current;
     if (!card) return;
 
     const rect = card.getBoundingClientRect();
@@ -32,43 +92,25 @@ export default function HeroThreatCard({
     const cy = rect.top + rect.height / 2;
     const dx = (e.clientX - cx) / (rect.width / 2);
     const dy = (e.clientY - cy) / (rect.height / 2);
-    const MAX_TILT = 8; // Max 8 degrees tilt as approved
+    const MAX_TILT = 8; // Max 8 degrees tilt
 
-    // Card transform
-    card.style.transform = `perspective(1000px) rotateY(${dx * MAX_TILT}deg) rotateX(${-dy * MAX_TILT}deg) translateZ(8px)`;
+    targetRotX.current = -dy * MAX_TILT;
+    targetRotY.current = dx * MAX_TILT;
+    targetTranslateZ.current = 12; // Smooth lift off on hover
 
-    // Move dynamic overlay glow spotlight on the card face
-    if (glow) {
-      const glowX = e.clientX - rect.left;
-      const glowY = e.clientY - rect.top;
-      glow.style.background = `radial-gradient(circle 180px at ${glowX}px ${glowY}px, rgba(255, 255, 255, 0.04), transparent 80%)`;
-    }
+    targetGlowX.current = e.clientX - rect.left;
+    targetGlowY.current = e.clientY - rect.top;
   };
 
   const handleMouseEnter = () => {
     setIsHovered(true);
-    const card = cardRef.current;
-    if (card) {
-      card.style.transition = "transform 100ms ease-out";
-    }
   };
 
   const handleMouseLeave = () => {
     setIsHovered(false);
-    const card = cardRef.current;
-    const glow = glowRef.current;
-    if (!card) return;
-
-    card.style.transform = "perspective(1000px) rotateY(0deg) rotateX(0deg) translateZ(0)";
-    card.style.transition = "transform 400ms ease";
-
-    if (glow) {
-      glow.style.background = "transparent";
-    }
-
-    setTimeout(() => {
-      if (card) card.style.transition = "";
-    }, 400);
+    targetRotX.current = 0;
+    targetRotY.current = 0;
+    targetTranslateZ.current = 0;
   };
 
   // Color threshold helpers

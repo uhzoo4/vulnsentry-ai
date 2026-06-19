@@ -84,13 +84,13 @@ export default function PostureHorizon({
   };
 
   return (
-    <div className="w-full max-w-5xl mx-auto px-6 py-12 select-none">
+    <div className="w-full max-w-5xl mx-auto px-6 py-12 select-none text-left">
       
       {/* Section Header */}
       <div className="mb-10 text-left border-l border-white/10 pl-4">
-        <p className="text-xs uppercase tracking-widest text-slate-500 font-mono">Section 06 // verification</p>
-        <h2 className="text-3xl font-bold tracking-tight text-white mt-1 font-display">
-          Posture Horizon
+        <p className="label-eyebrow">Section 06 // verification</p>
+        <h2 className="text-4xl md:text-5xl font-light font-display text-white mt-1 leading-[0.92] tracking-tight uppercase">
+          Posture <span className="text-primary italic font-semibold">Horizon</span>
         </h2>
       </div>
 
@@ -246,27 +246,42 @@ export default function PostureHorizon({
           {onReturnToDashboard && (
             <button
               onClick={onReturnToDashboard}
-              className="px-6 py-3.5 rounded-xl font-bold text-xs bg-white text-slate-950 hover:bg-slate-200 transition-all shadow-[0_0_15px_rgba(255,255,255,0.08)]"
+              className="px-6 py-3.5 rounded-full font-mono text-[10px] font-bold bg-white text-slate-950 hover:bg-slate-200 transition-all duration-300 uppercase tracking-widest shadow-[0_0_15px_rgba(255,255,255,0.08)] flex items-center justify-center gap-2"
             >
-              Return to Dashboard
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <rect x="3" y="3" width="7" height="7" rx="1" />
+                <rect x="14" y="3" width="7" height="7" rx="1" />
+                <rect x="3" y="14" width="7" height="7" rx="1" />
+                <rect x="14" y="14" width="7" height="7" rx="1" />
+              </svg>
+              <span>Return to Dashboard</span>
             </button>
           )}
 
           {onExportJson && (
             <button
               onClick={onExportJson}
-              className="px-6 py-3.5 rounded-xl font-mono text-xs font-semibold bg-white/[0.02] hover:bg-white/[0.06] text-white border border-white/10 transition-all"
+              className="px-6 py-3.5 rounded-full font-mono text-[10px] font-bold bg-white/[0.02] hover:bg-white/[0.06] text-white border border-white/10 transition-all duration-300 uppercase tracking-widest flex items-center justify-center gap-2"
             >
-              Export JSON Report
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              <span>Export JSON Report</span>
             </button>
           )}
 
           {onRestartScan && (
             <button
               onClick={onRestartScan}
-              className="px-6 py-3.5 rounded-xl font-mono text-xs font-semibold bg-white/[0.02] hover:bg-white/[0.06] text-white border border-white/10 transition-all"
+              className="px-6 py-3.5 rounded-full font-mono text-[10px] font-bold bg-white/[0.02] hover:bg-white/[0.06] text-white border border-white/10 transition-all duration-300 uppercase tracking-widest flex items-center justify-center gap-2"
             >
-              Trigger Full Re-Scan
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M23 4v6h-6" />
+                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+              </svg>
+              <span>Trigger Full Re-Scan</span>
             </button>
           )}
         </div>

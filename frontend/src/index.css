@@ -1,22 +1,45 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap');
+/* src/index.css */
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500;600;700&family=Outfit:wght@400;700;900&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --font-display: "Outfit", "Playfair Display", sans-serif;
-  --font-mono: "JetBrains Mono", "Fira Code", monospace;
-  
+  --font-display: "Cormorant Garamond", serif;
+  --font-title: "Outfit", sans-serif;
+  --font-sans: "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+
   --color-dark-ocean-bg: #070a13;
   --color-dark-ocean-panel: rgba(13, 17, 26, 0.45);
   --color-dark-ocean-border: rgba(255, 255, 255, 0.04);
-  
+
   --color-risk-critical: #e11d48;
   --color-risk-high: #f97316;
   --color-risk-medium: #f59e0b;
   --color-risk-low: #10b981;
   --color-risk-muted: #475569;
+
+  /* Stitch Spacing System */
+  --spacing-margin-mobile: 24px;
+  --spacing-margin-desktop: 80px;
+  --spacing-content-width-editorial: 45%;
+  --spacing-section-overlap: -20vh;
+
+  /* Stitch Color System */
+  --color-midnight-core: #071320;
+  --color-midnight-deep: #020611;
+  --color-pale-silver: #C0C0C0;
+  --color-soft-ivory: #FDFCF0;
 }
 
-/* Base resets and styling */
+/* ─── Base ───────────────────────────────────────────────────────────────── */
+html {
+  /* Sub-pixel antialiasing: essential for Cormorant Garamond fine strokes */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
+}
+
 html,
 body,
 #root {
@@ -24,12 +47,12 @@ body,
   padding: 0;
   background-color: #070a13;
   color: #f3f4f6;
-  font-family: var(--font-display);
+  font-family: var(--font-sans);
   overflow-x: hidden;
   min-height: 100vh;
 }
 
-/* Custom visual utilities */
+/* ─── Structural utilities ───────────────────────────────────────────────── */
 .glass-panel {
   background: rgba(13, 17, 26, 0.45);
   backdrop-filter: blur(16px);
@@ -38,12 +61,46 @@ body,
   box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
 }
 
+/* ─── Typography ─────────────────────────────────────────────────────────── */
+
+/*
+ * text-gradient: Three-stop — pure white anchor, neutral midpoint, slate fade.
+ * Angle 148° means the bright end sits at top-left (reading entry point),
+ * which makes large display type feel lit from above rather than washed out.
+ */
 .text-gradient {
-  background: linear-gradient(135deg, #ffffff 30%, #94a3b8 100%);
+  background: linear-gradient(148deg,
+      #ffffff 0%,
+      #dde4ef 38%,
+      #7c8fa8 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
+/*
+ * Editorial heading system — Cormorant Garamond at weights that preserve
+ * its calligraphic hairline. Weight 800 collapses these strokes on Windows.
+ * Use the italic 300 / roman 700 split for display contrast.
+ */
+.heading-display {
+  font-family: var(--font-display);
+  line-height: 0.92;
+  letter-spacing: -0.025em;
+  font-feature-settings: "kern" 1, "liga" 1, "dlig" 1;
+}
+
+/* Section eyebrow labels */
+.label-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 400;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: #475569;
+}
+
+/* ─── Risk glow utilities ────────────────────────────────────────────────── */
 .glow-critical {
   box-shadow: 0 0 25px rgba(225, 29, 72, 0.15);
 }
@@ -60,22 +117,33 @@ body,
   box-shadow: 0 0 25px rgba(16, 185, 129, 0.15);
 }
 
-/* Custom Scrollbar for premium feel */
+/* ─── Scrollbar ──────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 4px;
 }
+
 ::-webkit-scrollbar-track {
   background: #070a13;
 }
+
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 2px;
 }
 
-/* Chrome DevTools indicators and overlay resets */
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+/* ─── Misc ───────────────────────────────────────────────────────────────── */
 .no-interaction {
   pointer-events: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
