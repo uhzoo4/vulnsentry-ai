@@ -1,14 +1,10 @@
-import os
 import json
 import logging
 import asyncio
 from typing import Dict, Any, List
-from dotenv import load_dotenv
+from app.core.config import settings
 
-logger = logging.getLogger(__name__)
-
-# Load local environment variables
-load_dotenv()
+logger = logging.getLogger("vulnsentry.gemini")
 
 # Try importing google-generativeai
 try:
@@ -20,28 +16,23 @@ except ImportError:
 
 class GeminiAnalysisService:
     def __init__(self):
-        self.api_key = os.getenv("GEMINI_API_KEY")
-        self.model_name = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
         self.configured = False
-
-        if HAS_GENAI and self.api_key:
+        if HAS_GENAI and settings.GEMINI_API_KEY:
             try:
-                genai.configure(api_key=self.api_key)
+                genai.configure(api_key=settings.GEMINI_API_KEY)
                 self.configured = True
             except Exception as e:
-                logger.error(f"Failed to configure Gemini Generative AI SDK: {e}")
+                # Log a generic error message, never logging the actual key
+                logger.error("Failed to configure Gemini Generative AI SDK.")
 
-    def _get_fallback_response(self, message: str = "AI analysis unavailable.") -> Dict[str, Any]:
+    def _get_fallback_response(self) -> Dict[str, Any]:
         return {
             "status": "fallback",
-            "message": message,
-            "summary": "System security check complete. Fallback template active.",
+            "summary": "AI analysis unavailable.",
             "severity": "UNKNOWN",
             "explanation": "Could not connect to the VulnSentry AI analysis engine.",
             "recommendations": [
-                "Audit local listening services manually using 'netstat -ano' or 'ss -tulnp'.",
-                "Ensure firewall policies block unexpected public connections.",
-                "Review active user privileges and service account permissions."
+                "Retry analysis later."
             ]
         }
 
@@ -54,10 +45,10 @@ class GeminiAnalysisService:
     ) -> Dict[str, Any]:
         """
         Main entry point for security posture analysis.
-        Runs the blocking Gemini API call in an executor.
+        Runs the blocking Gemini API call in an executor with a 20-second timeout.
         """
-        if not self.configured or not HAS_GENAI:
-            return self._get_fallback_response("Gemini API not configured or SDK missing.")
+        if not self.configured or not HAS_GENAI or not settings.AI_ENABLED:
+            return self._get_fallback_response()
 
         try:
             # Build list of findings details for the model
@@ -103,23 +94,27 @@ class GeminiAnalysisService:
                 "- 'severity': The calculated overall threat severity (e.g. 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW').\n"
                 "- 'explanation': A simple 2-3 sentence educational explanation detailing why these active ports present a vulnerability risk.\n"
                 "- 'recommendations': A list of specific action-oriented defensive recommendations to secure the machine.\n"
+                "Do not include any other keys in the response."
             )
 
             # Define generative model and Generation Config
-            model = genai.GenerativeModel(self.model_name)
+            model = genai.GenerativeModel(settings.GEMINI_MODEL)
             generation_config = {
                 "response_mime_type": "application/json"
             }
 
             loop = asyncio.get_running_loop()
             
-            # Run blocking content generation in thread executor
-            response = await loop.run_in_executor(
-                None,
-                lambda: model.generate_content(
-                    contents=prompt,
-                    generation_config=generation_config
-                )
+            # Run blocking content generation in thread executor with 20s timeout
+            response = await asyncio.wait_for(
+                loop.run_in_executor(
+                    None,
+                    lambda: model.generate_content(
+                        contents=prompt,
+                        generation_config=generation_config
+                    )
+                ),
+                timeout=20.0
             )
 
             response_text = response.text.strip()
@@ -134,9 +129,12 @@ class GeminiAnalysisService:
                 "status": "success"
             }
 
-        except json.JSONDecodeError as je:
-            logger.error(f"Failed to parse Gemini response as JSON: {je}. Raw output: {response.text}")
-            return self._get_fallback_response("Invalid response format from AI model.")
+        except asyncio.TimeoutError:
+            logger.error("Gemini timeout.")
+            return self._get_fallback_response()
+        except json.JSONDecodeError:
+            logger.error("Gemini API returned an invalid response format.")
+            return self._get_fallback_response()
         except Exception as e:
-            logger.error(f"Exception during Gemini post analysis: {e}")
-            return self._get_fallback_response(f"Gemini API execution error: {str(e)}")
+            logger.error("Gemini API failure occurred.")
+            return self._get_fallback_response()

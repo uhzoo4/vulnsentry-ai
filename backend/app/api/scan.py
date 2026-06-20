@@ -2,9 +2,11 @@ import asyncio
 import json
 import uuid
 import psutil
+import logging
 from datetime import datetime
 from typing import Optional
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Depends
+
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Depends, Request
 from starlette.responses import StreamingResponse
 
 from app.schemas.analysis import ScanRequest
@@ -15,6 +17,9 @@ from app.core.risk_engine import analyze_port
 from app.core.remediator import get_remediation_for_finding
 from app.core.report_merger import merge_reports
 from app.core import state
+from app.core.rate_limiter import rate_limit_scan
+
+logger = logging.getLogger("vulnsentry.api.scan")
 
 router = APIRouter()
 
@@ -117,10 +122,11 @@ async def run_scan_task(scan_id: str, target: str):
         state.ACTIVE_SCANS[scan_id]["error"] = str(e)
 
 @router.post("/scan")
-def start_scan(request: ScanRequest, background_tasks: BackgroundTasks):
+def start_scan(request: ScanRequest, background_tasks: BackgroundTasks, _rate_limit = Depends(rate_limit_scan)):
     """
     REST endpoint to initiate an asynchronous TCP port scan of the target host.
     """
+    logger.info("Scan started.")
     valid_target = validate_target(request.target)
     scan_id = str(uuid.uuid4())
     
@@ -180,5 +186,5 @@ async def scan_status_stream(scanId: str):
                 break
                 
             await asyncio.sleep(0.5)
-
+ 
     return StreamingResponse(event_generator(), media_type="text/event-stream")

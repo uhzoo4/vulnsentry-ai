@@ -1,8 +1,12 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import JSONResponse
 from app.core import state
+from app.schemas.analysis_response import AnalysisRequest, AnalysisResponse
+from app.core.rate_limiter import rate_limit_ai
+from app.core.gemini_service import GeminiAnalysisService
 
 router = APIRouter()
+analyze_service = GeminiAnalysisService()
 
 @router.get("/findings")
 def get_findings():
@@ -65,3 +69,22 @@ async def get_finding_detail(finding_id: str):
         finding["teachBlock"] = teach_text
         
     return finding
+
+@router.post("/analyze", response_model=AnalysisResponse)
+async def analyze(
+    request: AnalysisRequest,
+    _: None = Depends(rate_limit_ai)
+):
+    """
+    Analyzes local machine vulnerabilities and service exposures.
+    """
+    findings_list = [item.dict() for item in request.findings]
+    
+    result = await analyze_service.analyze_findings(
+        findings=findings_list,
+        posture_score=request.posture_score,
+        open_ports=request.open_ports,
+        scores=request.scores
+    )
+    
+    return AnalysisResponse(**result)

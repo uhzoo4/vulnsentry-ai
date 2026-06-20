@@ -1,0 +1,26 @@
+# Environments
+.env
+.env.*
+.env.local
+
+# Keys and Certificates
+*.pem
+*.key
+*.crt
+
+# Python
+venv/
+.venv/
+ENV/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Logging & Cache
+logs/
+*.log
+.cache/
+
+# Statically compiled frontend files
+static/

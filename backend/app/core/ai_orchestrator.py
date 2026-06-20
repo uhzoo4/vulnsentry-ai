@@ -1,14 +1,13 @@
-import os
-import platform
 import logging
 import asyncio
+import platform
 from typing import Optional, Dict, Any, List
+from app.core.config import settings
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("vulnsentry.ai_orchestrator")
 
 # Try importing google-generativeai
 try:
-    # pyrefly: ignore [missing-import]
     import google.generativeai as genai
     HAS_GENAI = True
 except ImportError:
@@ -51,15 +50,14 @@ STATIC_TEACH_BLOCKS = {
 def configure_genai() -> bool:
     if not HAS_GENAI:
         return False
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        logger.warning("GEMINI_API_KEY environment variable not set. AI features will fallback to static templates.")
+    if not settings.GEMINI_API_KEY:
+        # We don't log a duplicate warning here as main validate_config handles it
         return False
     try:
-        genai.configure(api_key=api_key)
+        genai.configure(api_key=settings.GEMINI_API_KEY)
         return True
-    except Exception as e:
-        logger.error(f"Failed to configure Gemini SDK: {e}")
+    except Exception:
+        logger.error("Failed to configure Gemini SDK in orchestrator.")
         return False
 
 class GeminiService:
@@ -69,18 +67,18 @@ class GeminiService:
         self.insight_cache = {}  # scan_id -> insight dictionary
         
     def get_model(self) -> Optional[Any]:
-        if not self.configured:
+        if not self.configured or not settings.AI_ENABLED:
             return None
         try:
-            return genai.GenerativeModel("gemini-1.5-flash")
-        except Exception as e:
-            logger.error(f"Failed to get GenerativeModel: {e}")
+            return genai.GenerativeModel(settings.GEMINI_MODEL)
+        except Exception:
+            logger.error("Failed to retrieve GenerativeModel.")
             return None
 
     async def generate_holistic_insight(self, report: dict) -> dict:
         """
         Generates a consolidated 2-3 sentence recommendation for a scan report.
-        Runs the blocking API call in an executor.
+        Runs the blocking API call in an executor with a 20-second timeout.
         """
         scan_id = report.get("scanId", "default")
         if scan_id in self.insight_cache:
@@ -126,10 +124,14 @@ class GeminiService:
             )
             
             loop = asyncio.get_event_loop()
-            # Wrap blocking call in executor
-            response = await loop.run_in_executor(
-                None, 
-                lambda: model.generate_content(prompt)
+            
+            # Wrap blocking call in executor with 20s timeout
+            response = await asyncio.wait_for(
+                loop.run_in_executor(
+                    None, 
+                    lambda: model.generate_content(prompt)
+                ),
+                timeout=20.0
             )
             rec_text = response.text.strip()
             
@@ -140,8 +142,13 @@ class GeminiService:
             self.insight_cache[scan_id] = insight
             return insight
             
-        except Exception as e:
-            logger.error(f"Gemini API error during holistic insight: {e}")
+        except asyncio.TimeoutError:
+            logger.error("Gemini timeout.")
+            default_insight["recommendation"] = f"Exposing {top_name} on port {top_finding.get('port')} represents a major security risk. Consider securing it first to improve your score."
+            default_insight["topFindingId"] = top_id
+            return default_insight
+        except Exception:
+            logger.error("Gemini API failure during holistic insight.")
             default_insight["recommendation"] = f"Exposing {top_name} on port {top_finding.get('port')} represents a major security risk. Consider securing it first to improve your score."
             default_insight["topFindingId"] = top_id
             return default_insight
@@ -174,16 +181,23 @@ class GeminiService:
             )
             
             loop = asyncio.get_event_loop()
-            # Wrap blocking call in executor
-            response = await loop.run_in_executor(
-                None,
-                lambda: model.generate_content(prompt)
+            
+            # Wrap blocking call in executor with 20s timeout
+            response = await asyncio.wait_for(
+                loop.run_in_executor(
+                    None,
+                    lambda: model.generate_content(prompt)
+                ),
+                timeout=20.0
             )
             explanation = response.text.strip()
             
             self.teach_cache[rule_id] = explanation
             return explanation
             
-        except Exception as e:
-            logger.error(f"Gemini API error during teach block: {e}")
+        except asyncio.TimeoutError:
+            logger.error("Gemini timeout.")
+            return static_fallback
+        except Exception:
+            logger.error("Gemini API failure during teach block.")
             return static_fallback

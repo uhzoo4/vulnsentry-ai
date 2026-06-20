@@ -1,11 +1,33 @@
-from fastapi import APIRouter, HTTPException, Body
+from fastapi import APIRouter, HTTPException, Body, Request, Depends
 from app.core import state
 from app.core.remediator import execute_remediation_command
 from app.core.posture_score import calculate_posture_score
+from app.core.config import settings
 
 router = APIRouter()
 
-@router.post("/remediate/{finding_id}")
+def verify_admin_access(request: Request):
+    client_ip = request.client.host if request.client else "unknown"
+    is_local = client_ip in ("127.0.0.1", "::1", "localhost")
+    
+    # Check if API_SECRET is set
+    api_secret = settings.API_SECRET
+    if api_secret:
+        # Check header
+        secret_header = request.headers.get("X-API-Secret")
+        if secret_header != api_secret:
+            raise HTTPException(
+                status_code=403,
+                detail="Forbidden: Invalid API secret."
+            )
+            
+    if not is_local:
+        raise HTTPException(
+            status_code=403,
+            detail="Forbidden: Administrative actions are restricted to local connections only."
+        )
+
+@router.post("/remediate/{finding_id}", dependencies=[Depends(verify_admin_access)])
 async def remediate_finding(finding_id: str, payload: dict = Body(...)):
     """
     Executes the remediation command for a given finding if confirmed by the user.
