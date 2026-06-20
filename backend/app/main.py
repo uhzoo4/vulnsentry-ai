@@ -3,6 +3,7 @@ from app.api.live import router as live_router
 from app.api.scan import router as scan_router
 from app.api.analysics import router as findings_router
 from app.api.remediation import router as remediation_router
+from app.api.analyze import router as analyze_router
 
 app = FastAPI(
     title="VulnSentry AI",
@@ -26,6 +27,11 @@ app.include_router(
 
 app.include_router(
     remediation_router,
+    prefix="/api"
+)
+
+app.include_router(
+    analyze_router,
     prefix="/api"
 )
 
