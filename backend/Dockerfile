@@ -3,6 +3,7 @@
 # ==========================================
 FROM node:20-alpine AS frontend-builder
 WORKDIR /app
+ENV PYTHONUNBUFFERED=1
 
 # Install dependencies
 COPY frontend/package*.json ./
@@ -17,6 +18,7 @@ RUN npm run build
 # ==========================================
 FROM python:3.11-slim
 WORKDIR /app
+ENV PYTHONUNBUFFERED=1
 
 # Install compilation tools for psutil
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -35,6 +37,7 @@ COPY --from=frontend-builder /app/dist ./app/static
 
 # Ensure logging directory is present inside the container
 RUN mkdir -p logs
+ENV PORT=7860
 
 # Expose port 7860 (Hugging Face default)
 EXPOSE 7860
