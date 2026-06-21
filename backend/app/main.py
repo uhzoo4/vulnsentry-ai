@@ -139,12 +139,17 @@ def version_check():
 # This is critical for HF health probes and must be registered
 # BEFORE the catch-all SPA route below.
 @app.get("/")
-def root():
-    return {
-        "status": "online",
-        "service": "VulnSentry AI",
-        "message": "Your Machine's Immune System"
-    }
+def serve_index():
+    index_file = os.path.join(static_dir, "index.html")
+    return FileResponse(index_file)
+
+@app.get("/{fallback_path:path}")
+def serve_frontend(fallback_path: str):
+    if fallback_path.startswith("api"):
+        raise HTTPException(404)
+
+    index_file = os.path.join(static_dir, "index.html")
+    return FileResponse(index_file)
 
 # 10. React SPA Static Serving (catch-all LAST)
 static_dir = os.path.join(
