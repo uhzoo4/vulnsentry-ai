@@ -1,4 +1,5 @@
 import { useState } from "react";
+import LoadingSkeleton from "./LoadingSkeleton";
 
 interface AIObservationProps {
   recommendation?: string;
@@ -65,11 +66,11 @@ export default function AIObservation({
           <div className="absolute top-0 right-0 w-24 h-24 border-b border-l border-white/[0.02] pointer-events-none" />
 
           {isLoading ? (
-            <div className="flex flex-col gap-4 py-8">
-              <div className="h-4 bg-white/5 rounded w-1/3 animate-pulse" />
-              <div className="h-6 bg-white/5 rounded w-full animate-pulse" />
-              <div className="h-6 bg-white/5 rounded w-4/5 animate-pulse" />
-              <div className="h-6 bg-white/5 rounded w-5/6 animate-pulse" />
+            <div className="flex flex-col gap-5 py-8">
+              <LoadingSkeleton width="30%" height="20px" className="mb-4" />
+              <LoadingSkeleton width="100%" height="24px" />
+              <LoadingSkeleton width="80%" height="24px" />
+              <LoadingSkeleton width="90%" height="24px" />
             </div>
           ) : (
             <div className="flex flex-col gap-8">

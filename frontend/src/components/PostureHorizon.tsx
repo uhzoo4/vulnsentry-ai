@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import type { Finding } from "../types/finding";
+import LoadingSkeleton from "./LoadingSkeleton";
 
 interface PostureHorizonProps {
   beforeScore?: number;
@@ -7,6 +8,7 @@ interface PostureHorizonProps {
   beforeFindings?: Finding[];
   afterFindings?: Finding[];
   isVerificationActive?: boolean;
+  isAnalyzing?: boolean;
   onRestartScan?: () => void;
   onExportJson?: () => void;
   onReturnToDashboard?: () => void;
@@ -18,6 +20,7 @@ export default function PostureHorizon({
   beforeFindings = [],
   afterFindings = [],
   isVerificationActive = false,
+  isAnalyzing = false,
   onRestartScan,
   onExportJson,
   onReturnToDashboard,
@@ -150,51 +153,61 @@ export default function PostureHorizon({
           {/* After Findings & Resolved Pulse List */}
           <div className="flex flex-col gap-3 max-h-[300px] overflow-y-auto pr-2">
             
-            {/* Resolved Nodes Pulsing Green and Fading Out */}
-            {isVerificationActive && resolvedFindings.map((finding) => (
-              <div
-                key={`res-${finding.id}`}
-                className="p-3.5 rounded-lg border flex items-center justify-between transition-all duration-1000 bg-emerald-950/20 border-emerald-500/30 text-emerald-400 animate-pulse"
-                style={{
-                  animationIterationCount: 2,
-                  animationDuration: "1.2s",
-                }}
-              >
-                <div className="flex items-center gap-3">
-                  <span className="w-4 h-4 rounded-full bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-[10px] font-bold text-emerald-400">
-                    ✓
-                  </span>
-                  <span className="text-xs font-semibold font-display line-through opacity-60">
-                    {finding.serviceName} <span className="font-mono font-normal">({finding.port})</span>
-                  </span>
-                </div>
-                <span className="text-xs font-mono opacity-50 uppercase tracking-wider text-[10px]">RESOLVED</span>
-              </div>
-            ))}
-
-            {/* Remaining active findings */}
-            {remainingFindings.length === 0 && resolvedFindings.length === 0 ? (
-              <div className="py-8 text-center">
-                <span className="text-xs text-slate-400 font-mono block">SYSTEM SECURED</span>
-                <span className="text-[10px] text-slate-600 font-mono mt-1 block">No active security risks exposed.</span>
+            {isAnalyzing ? (
+              <div className="flex flex-col gap-3 py-2">
+                <LoadingSkeleton width="100%" height="48px" />
+                <LoadingSkeleton width="100%" height="48px" />
+                <LoadingSkeleton width="100%" height="48px" />
               </div>
             ) : (
-              remainingFindings.map((finding) => (
-                <div
-                  key={finding.id}
-                  className="p-3.5 rounded-lg bg-white/[0.02] border border-white/[0.04] flex items-center justify-between hover:border-white/[0.1] transition-all"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className={`px-2 py-0.5 rounded text-[9px] font-mono border ${getSeverityBadgeColor(finding.severity)}`}>
-                      {finding.severity.toUpperCase()}
-                    </span>
-                    <span className="text-xs font-semibold text-slate-200 font-display">
-                      {finding.serviceName} <span className="font-mono text-slate-400 font-normal">({finding.port})</span>
-                    </span>
+              <>
+                {/* Resolved Nodes Pulsing Green and Fading Out */}
+                {isVerificationActive && resolvedFindings.map((finding) => (
+                  <div
+                    key={`res-${finding.id}`}
+                    className="p-3.5 rounded-lg border flex items-center justify-between transition-all duration-1000 bg-emerald-950/20 border-emerald-500/30 text-emerald-400 animate-pulse"
+                    style={{
+                      animationIterationCount: 2,
+                      animationDuration: "1.2s",
+                    }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="w-4 h-4 rounded-full bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-[10px] font-bold text-emerald-400">
+                        ✓
+                      </span>
+                      <span className="text-xs font-semibold font-display line-through opacity-60">
+                        {finding.serviceName} <span className="font-mono font-normal">({finding.port})</span>
+                      </span>
+                    </div>
+                    <span className="text-xs font-mono opacity-50 uppercase tracking-wider text-[10px]">RESOLVED</span>
                   </div>
-                  <span className="text-xs font-mono text-slate-400">{finding.processName}</span>
-                </div>
-              ))
+                ))}
+
+                {/* Remaining active findings */}
+                {remainingFindings.length === 0 && resolvedFindings.length === 0 ? (
+                  <div className="py-8 text-center">
+                    <span className="text-xs text-slate-400 font-mono block">SYSTEM SECURED</span>
+                    <span className="text-[10px] text-slate-600 font-mono mt-1 block">No active security risks exposed.</span>
+                  </div>
+                ) : (
+                  remainingFindings.map((finding) => (
+                    <div
+                      key={finding.id}
+                      className="p-3.5 rounded-lg bg-white/[0.02] border border-white/[0.04] flex items-center justify-between hover:border-white/[0.1] transition-all"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className={`px-2 py-0.5 rounded text-[9px] font-mono border ${getSeverityBadgeColor(finding.severity)}`}>
+                          {finding.severity.toUpperCase()}
+                        </span>
+                        <span className="text-xs font-semibold text-slate-200 font-display">
+                          {finding.serviceName} <span className="font-mono text-slate-400 font-normal">({finding.port})</span>
+                        </span>
+                      </div>
+                      <span className="text-xs font-mono text-slate-400">{finding.processName}</span>
+                    </div>
+                  ))
+                )}
+              </>
             )}
           </div>
         </div>

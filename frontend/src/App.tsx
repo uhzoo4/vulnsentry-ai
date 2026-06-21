@@ -6,6 +6,7 @@ import MachineNarrative from "./components/MachineNarrative";
 import AIObservation from "./components/AIObservation";
 import SpatialTopology from "./components/TopologyGraph/SpatialTopology";
 import PostureHorizon from "./components/PostureHorizon";
+import SystemBootScreen from "./components/SystemBootScreen";
 import { useLiveStream } from "./hooks/useLiveStream";
 import { useScan } from "./hooks/useScan";
 import { getScanLabel, getScanTelemetry } from "./hooks/scanDirector";
@@ -23,6 +24,9 @@ export default function App() {
   const [scrollTop, setScrollTop] = useState(0);
   const [windowHeight, setWindowHeight] = useState(window.innerHeight);
   const containerRef = useRef<HTMLDivElement | null>(null);
+
+  // ── Boot state ────────────────────────────────────────────────────────────
+  const [isBooting, setIsBooting] = useState(true);
 
   // Derived: which section is currently snapped (integer index 0–5)
   const activeSectionIndex = Math.round(scrollTop / windowHeight);
@@ -539,6 +543,7 @@ export default function App() {
             beforeFindings={beforeFindings}
             afterFindings={afterFindings}
             isVerificationActive={scrollTop >= 4.5 * windowHeight}
+            isAnalyzing={scanState.status === "running"}
             onRestartScan={handleScanTrigger}
             onExportJson={handleExportJson}
             onReturnToDashboard={() => scrollToSection(0)}
@@ -547,6 +552,7 @@ export default function App() {
 
       </div>
 
+      {isBooting && <SystemBootScreen onComplete={() => setIsBooting(false)} />}
     </div>
   );
 }

@@ -479,32 +479,32 @@ export default function SpatialTopology({
 
           <Canvas camera={{ position: [0, 3, 6], fov: 50 }}>
             <IntensityCtx.Provider value={intensity}>
-            {/* Ambient + volumetric lighting */}
-            <ambientLight intensity={0.45} />
-            <pointLight position={[0, 4, 4]} intensity={0.8} />
+              {/* Ambient + volumetric lighting */}
+              <ambientLight intensity={0.45} />
+              <pointLight position={[0, 4, 4]} intensity={0.8} />
 
-            {/* Camera Drift + Mouse Parallax */}
-            <CameraController />
+              {/* Camera Drift + Mouse Parallax */}
+              <CameraController />
 
-            {/* Constellation background of stars and lines */}
-            <ConstellationBackground />
+              {/* Constellation background of stars and lines */}
+              <ConstellationBackground />
 
-            {/* Central glowing host node */}
-            <HostNode />
+              {/* Central glowing host node */}
+              <HostNode />
 
-            {/* Orbiting service nodes */}
-            {active.map((conn, idx) => (
-              <ServiceNode
-                key={`${conn.processName}-${conn.port}`}
-                conn={conn}
-                index={idx}
-                total={active.length}
-                activeNodeId={activeNodeId}
-                hoveredNodeId={hoveredNodeId}
-                onHover={setHoveredNodeId}
-                onClick={onNodeClick || (() => { })}
-              />
-            ))}
+              {/* Orbiting service nodes */}
+              {active.map((conn, idx) => (
+                <ServiceNode
+                  key={`${conn.processName}-${conn.port}`}
+                  conn={conn}
+                  index={idx}
+                  total={active.length}
+                  activeNodeId={activeNodeId}
+                  hoveredNodeId={hoveredNodeId}
+                  onHover={setHoveredNodeId}
+                  onClick={onNodeClick || (() => { })}
+                />
+              ))}
             </IntensityCtx.Provider>
           </Canvas>
 
