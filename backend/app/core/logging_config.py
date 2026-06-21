@@ -48,11 +48,18 @@ def setup_logging():
     file_handler.setFormatter(formatter)
     root_logger.addHandler(file_handler)
     
-    # Set levels for libraries to avoid debug pollution
-    for logger_name in ["uvicorn", "uvicorn.error", "fastapi"]:
+    # Set levels for noisy libraries — but keep uvicorn.error at INFO
+    # so that the critical "Uvicorn running on http://..." startup message
+    # is emitted (Hugging Face monitors stdout for this)
+    for logger_name in ["fastapi"]:
         l = logging.getLogger(logger_name)
         l.setLevel(logging.WARNING)
         l.propagate = True
 
-    # Specifically keep uvicorn.access at WARNING or handle it cleanly
+    # uvicorn core logger MUST stay at INFO for startup confirmation
+    logging.getLogger("uvicorn").setLevel(logging.INFO)
+    logging.getLogger("uvicorn.error").setLevel(logging.INFO)
+
+    # Access logs are noisy — keep at WARNING
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+

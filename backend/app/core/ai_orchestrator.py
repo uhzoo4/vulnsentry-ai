@@ -11,6 +11,7 @@ try:
     import google.generativeai as genai
     HAS_GENAI = True
 except ImportError:
+    genai = None
     HAS_GENAI = False
     logger.warning("google-generativeai package not found. AI features will fallback to static templates.")
 
@@ -51,7 +52,6 @@ def configure_genai() -> bool:
     if not HAS_GENAI:
         return False
     if not settings.GEMINI_API_KEY:
-        # We don't log a duplicate warning here as main validate_config handles it
         return False
     try:
         genai.configure(api_key=settings.GEMINI_API_KEY)
@@ -93,7 +93,6 @@ class GeminiService:
         if not findings:
             return default_insight
             
-        # Find the top critical/high finding based on risk score
         sorted_findings = sorted(findings, key=lambda x: x.get("riskScore", 0.0), reverse=True)
         top_finding = sorted_findings[0]
         top_id = top_finding.get("id", "")
@@ -101,7 +100,6 @@ class GeminiService:
         
         model = self.get_model()
         if not model:
-            # Offline static fallback
             default_insight["recommendation"] = f"Exposing {top_name} on port {top_finding.get('port')} represents a major security risk. Consider securing it first to improve your score."
             default_insight["topFindingId"] = top_id
             return default_insight
@@ -124,21 +122,13 @@ class GeminiService:
             )
             
             loop = asyncio.get_event_loop()
-            
-            # Wrap blocking call in executor with 20s timeout
             response = await asyncio.wait_for(
-                loop.run_in_executor(
-                    None, 
-                    lambda: model.generate_content(prompt)
-                ),
+                loop.run_in_executor(None, lambda: model.generate_content(prompt)),
                 timeout=20.0
             )
             rec_text = response.text.strip()
             
-            insight = {
-                "recommendation": rec_text,
-                "topFindingId": top_id
-            }
+            insight = {"recommendation": rec_text, "topFindingId": top_id}
             self.insight_cache[scan_id] = insight
             return insight
             
@@ -181,13 +171,8 @@ class GeminiService:
             )
             
             loop = asyncio.get_event_loop()
-            
-            # Wrap blocking call in executor with 20s timeout
             response = await asyncio.wait_for(
-                loop.run_in_executor(
-                    None,
-                    lambda: model.generate_content(prompt)
-                ),
+                loop.run_in_executor(None, lambda: model.generate_content(prompt)),
                 timeout=20.0
             )
             explanation = response.text.strip()

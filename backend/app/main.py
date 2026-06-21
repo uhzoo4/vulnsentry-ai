@@ -5,7 +5,6 @@ from fastapi.responses import JSONResponse, FileResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.core.config import settings, validate_config
 from app.core.logging_config import setup_logging
@@ -22,8 +21,6 @@ from app.api.scan import router as scan_router
 from app.api.analysics import router as analysics_router
 from app.api.remediation import router as remediation_router
 
-
-
 app = FastAPI(
     title="VulnSentry AI",
     version="0.8.0",
@@ -32,21 +29,19 @@ app = FastAPI(
     openapi_url=None
 )
 
-# Trusted Hosts
-app.add_middleware(
-    TrustedHostMiddleware,
-    allowed_hosts=[
-        "localhost",
-        "127.0.0.1",
-        "*.hf.space"
-    ]
-)
+@app.on_event("startup")
+async def startup():
+    logger.info("Application startup complete.")
 
 # 3. CORS Configuration
 allowed_origins_str = settings.ALLOWED_ORIGINS
 allowed_origins = [o.strip() for o in allowed_origins_str.split(",") if o.strip()]
 if not allowed_origins:
-    allowed_origins = ["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:3000"]
+    allowed_origins = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+    ]
 
 app.add_middleware(
     CORSMiddleware,
@@ -56,17 +51,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# 4. Security Headers Middleware
+# NOTE: X-Frame-Options is intentionally NOT set to DENY because
+# Hugging Face Spaces renders Docker apps inside an iframe.
+# DENY would block HF from displaying the Space entirely.
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
     response = await call_next(request)
-
-    response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"] = "same-origin"
-
     return response
-    
-# 4. Request Payload Size Limit Middleware (1MB)
+
+# 5. Request Payload Size Limit Middleware (1MB)
 MAX_PAYLOAD_SIZE = 1 * 1024 * 1024  # 1 MB
 
 @app.middleware("http")
@@ -87,7 +83,7 @@ async def limit_payload_size(request: Request, call_next):
                 )
     return await call_next(request)
 
-# 5. Global Exception Handlers
+# 6. Global Exception Handlers
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     logger.warning("Validation failed for incoming request.")
@@ -116,13 +112,13 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
         content={"error": "An internal server error occurred."}
     )
 
-# 6. Include routers
+# 7. Include API routers
 app.include_router(live_router, prefix="/api")
 app.include_router(scan_router, prefix="/api")
 app.include_router(analysics_router, prefix="/api")
 app.include_router(remediation_router, prefix="/api")
 
-# 7. Health Check Endpoints
+# 8. Health Check Endpoints (explicit, fast, always registered)
 @app.get("/api/health")
 def health_check():
     ai_status = "online" if settings.AI_ENABLED else "fallback"
@@ -139,8 +135,26 @@ def version_check():
         "build": "hackathon"
     }
 
-# 8. React SPA Static Serving
-static_dir = os.path.join(os.path.dirname(__file__), "static")
+# 9. Explicit root route — always returns HTTP 200 JSON
+# This is critical for HF health probes and must be registered
+# BEFORE the catch-all SPA route below.
+@app.get("/")
+def root():
+    return {
+        "status": "online",
+        "service": "VulnSentry AI",
+        "message": "Your Machine's Immune System"
+    }
+
+# 10. React SPA Static Serving (catch-all LAST)
+static_dir = os.path.join(
+    os.path.dirname(__file__),
+    "static"
+)
+
+logger.info(f"MAIN FILE: {__file__}")
+logger.info(f"STATIC DIR: {static_dir}")
+logger.info(f"STATIC EXISTS: {os.path.exists(static_dir)}")
 if os.path.exists(static_dir):
     assets_dir = os.path.join(static_dir, "assets")
     if os.path.exists(assets_dir):
@@ -148,17 +162,13 @@ if os.path.exists(static_dir):
 
     @app.get("/{fallback_path:path}")
     def serve_frontend(fallback_path: str):
+        # Never intercept API routes
         if fallback_path.startswith("api"):
             raise HTTPException(status_code=404, detail="API route not found")
         index_file = os.path.join(static_dir, "index.html")
         if os.path.exists(index_file):
             return FileResponse(index_file)
-        return {"error": "Frontend build files not found."}
-else:
-    @app.get("/")
-    def root():
-        return {
-            "status": "online",
-            "service": "VulnSentry AI",
-            "message": "Your Machine's Immune System"
-        }
+        return JSONResponse(
+            status_code=404,
+            content={"error": "Frontend build files not found."}
+        )

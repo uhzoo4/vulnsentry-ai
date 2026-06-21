@@ -6,7 +6,9 @@ from app.core.rate_limiter import rate_limit_ai
 from app.core.gemini_service import GeminiAnalysisService
 
 router = APIRouter()
-analyze_service = GeminiAnalysisService()
+
+def get_service():
+    return GeminiAnalysisService()
 
 @router.get("/findings")
 def get_findings():
@@ -80,7 +82,9 @@ async def analyze(
     """
     findings_list = [item.dict() for item in request.findings]
     
-    result = await analyze_service.analyze_findings(
+    service = get_service()
+
+    result = await service.analyze_findings(
         findings=findings_list,
         posture_score=request.posture_score,
         open_ports=request.open_ports,
