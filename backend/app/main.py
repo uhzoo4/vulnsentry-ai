@@ -54,7 +54,8 @@ app.add_middleware(
 # 4. Security Headers Middleware
 # NOTE: X-Frame-Options is intentionally NOT set to DENY because
 # Hugging Face Spaces renders Docker apps inside an iframe.
-# DENY would block HF from displaying the Space entirely.
+# response.headers["X-Content-Type-Options"] = "nosniff"
+# response.headers["Referrer-Policy"] = "same-origin"
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
     response = await call_next(request)
@@ -135,39 +136,45 @@ def version_check():
         "build": "hackathon"
     }
 
-# 9. Explicit root route — always returns HTTP 200 JSON
-# This is critical for HF health probes and must be registered
-# BEFORE the catch-all SPA route below.
-@app.get("/")
-def serve_index():
-    index_file = os.path.join(static_dir, "index.html")
-    return FileResponse(index_file)
+# 9. React SPA Static Serving
+# -----------------------------------------------------------------------
+# CRITICAL ORDERING RULE (FastAPI/Starlette):
+#   Routes and mounts are evaluated in registration order.
+#   app.mount("/assets") MUST be registered BEFORE any catch-all
+#   @app.get("/{fallback_path:path}") — otherwise the catch-all
+#   intercepts every /assets/*.js and /assets/*.css request and
+#   returns index.html with Content-Type: text/html, which the
+#   browser rejects as an invalid JS module or stylesheet.
+#
+# Correct order:
+#   1. app.mount("/assets", StaticFiles(...))   ← registered first
+#   2. @app.get("/")                            ← explicit root
+#   3. @app.get("/{fallback_path:path}")        ← catch-all LAST
+# -----------------------------------------------------------------------
 
-@app.get("/{fallback_path:path}")
-def serve_frontend(fallback_path: str):
-    if fallback_path.startswith("api"):
-        raise HTTPException(404)
+static_dir = os.path.join(os.path.dirname(__file__), "static")
 
-    index_file = os.path.join(static_dir, "index.html")
-    return FileResponse(index_file)
-
-# 10. React SPA Static Serving (catch-all LAST)
-static_dir = os.path.join(
-    os.path.dirname(__file__),
-    "static"
-)
-
-logger.info(f"MAIN FILE: {__file__}")
-logger.info(f"STATIC DIR: {static_dir}")
+logger.info(f"MAIN FILE:     {__file__}")
+logger.info(f"STATIC DIR:    {static_dir}")
 logger.info(f"STATIC EXISTS: {os.path.exists(static_dir)}")
+
 if os.path.exists(static_dir):
+    # Step 1: Mount /assets FIRST — Starlette Mount has priority
+    # over @app.get routes for any path it handles.
     assets_dir = os.path.join(static_dir, "assets")
     if os.path.exists(assets_dir):
         app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+        logger.info(f"ASSETS MOUNTED: {assets_dir}")
 
+    # Step 2: Explicit root route
+    @app.get("/")
+    def serve_index():
+        return FileResponse(os.path.join(static_dir, "index.html"))
+
+    # Step 3: SPA catch-all — registered AFTER the mount
     @app.get("/{fallback_path:path}")
     def serve_frontend(fallback_path: str):
-        # Never intercept API routes
+        # API routes that don't match a registered endpoint → 404 JSON
         if fallback_path.startswith("api"):
             raise HTTPException(status_code=404, detail="API route not found")
         index_file = os.path.join(static_dir, "index.html")
@@ -177,3 +184,13 @@ if os.path.exists(static_dir):
             status_code=404,
             content={"error": "Frontend build files not found."}
         )
+
+else:
+    # No static build present (local dev without frontend build)
+    @app.get("/")
+    def root():
+        return {
+            "status": "online",
+            "service": "VulnSentry AI",
+            "message": "Your Machine's Immune System"
+        }
