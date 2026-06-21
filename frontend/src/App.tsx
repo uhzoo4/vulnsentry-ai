@@ -8,6 +8,7 @@ import SpatialTopology from "./components/TopologyGraph/SpatialTopology";
 import PostureHorizon from "./components/PostureHorizon";
 import { useLiveStream } from "./hooks/useLiveStream";
 import { useScan } from "./hooks/useScan";
+import { getScanLabel, getScanTelemetry } from "./hooks/scanDirector";
 import type { Finding } from "./types/finding";
 
 function generateReportId() {
@@ -229,11 +230,15 @@ export default function App() {
     subtitleTranslateY = -10;
   }
 
-  // ── Live metrics ──────────────────────────────────────────────────────────
+  // ── Live metrics ────────────────────────────────────────────────────────────────────
   const currentScore = scanState.report?.postureScore ?? (connections.length > 0 ? 73 : 58);
   const openPorts = scanState.report?.summary.openPortsFound ?? connections.length;
   const criticalCount = scanState.report?.summary.criticalFindings
     ?? connections.filter(c => c.severity === "critical").length;
+
+  // ── Scan Director: single source of truth for display state ────────────────────
+  const scanLabel = getScanLabel(scanState.status, scanState.phase);
+  const scanTelemetry = getScanTelemetry(scanState.status, scanState.phase);
 
   // AI Recommendation extraction
   const topFinding = scanState.report?.findings?.[0];
@@ -350,6 +355,9 @@ export default function App() {
                 isScanning={scanState.status === "running"}
                 onScanClick={handleScanTrigger}
                 lastScanTime={lastScanTime}
+                scanLabel={scanLabel}
+                scanProgress={scanState.progress}
+                scanTelemetry={scanTelemetry}
               />
             </div>
           </div>
@@ -466,6 +474,7 @@ export default function App() {
           <MachineNarrative
             scanProgress={scanState.progress}
             isScanning={scanState.status === "running"}
+            scanPhase={scanState.phase}
           />
         </section>
 
@@ -502,6 +511,9 @@ export default function App() {
         >
           <SpatialTopology
             connections={connections}
+            isScanning={scanState.status === "running"}
+            scanPhase={scanState.phase}
+            scanProgress={scanState.progress}
             onNodeClick={(nodeId, processName) => {
               console.log(`Clicked node: ${nodeId} (${processName})`);
               if (nodeId === "mysqld-3306" && processName === "mysqld") {

@@ -1,16 +1,28 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable react-hooks/immutability */
 /* eslint-disable react-hooks/purity */
-import { useRef, useState, useMemo, useEffect } from "react";
+import React, { useRef, useState, useMemo, useEffect, useContext } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import * as THREE from "three";
 import type { Connection } from "../../types/finding";
+import HostCard from "./HostCard";
+import { getTopologyIntensity, type TopologyIntensity, type ScanStatus, type ScanPhase } from "../../hooks/scanDirector";
+
+// React context to pipe scan intensity into R3F sub-components
+const IntensityCtx = React.createContext<TopologyIntensity>({
+  orbitSpeedMultiplier: 1.0,
+  connectionOpacityBoost: 0,
+  hostGlowMultiplier: 1.0,
+});
 
 interface SpatialTopologyProps {
   connections?: Connection[];
   onNodeClick?: (nodeId: string, processName: string) => void;
   activeNodeId?: string | null;
+  isScanning?: boolean;
+  scanPhase?: ScanPhase;
+  scanProgress?: number;
 }
 
 const MOCK_CONNECTIONS: Connection[] = [
@@ -138,17 +150,24 @@ function ConstellationBackground() {
 function HostNode() {
   const meshRef = useRef<THREE.Mesh>(null);
   const ringRef = useRef<THREE.Mesh>(null);
+  const intensity = useContext(IntensityCtx);
 
   useFrame(({ clock }) => {
     if (!meshRef.current || !ringRef.current) return;
     const t = clock.getElapsedTime();
 
-    // Slow volumetric breathing pulse every 4 seconds
-    const scale = 1.0 + Math.sin(t * (Math.PI / 2)) * 0.05;
+    // Slow volumetric breathing pulse every 4 seconds, amplified by hostGlowMultiplier
+    const breathe = Math.sin(t * (Math.PI / 2)) * 0.05 * intensity.hostGlowMultiplier;
+    const scale = 1.0 + breathe;
     meshRef.current.scale.set(scale, scale, scale);
 
     // Rotate core glowing ring
     ringRef.current.rotation.z = t * 0.12;
+
+    // Increase ring opacity during correlation phase glow
+    if (ringRef.current.material instanceof THREE.MeshBasicMaterial) {
+      ringRef.current.material.opacity = 0.15 * intensity.hostGlowMultiplier;
+    }
   });
 
   return (
@@ -163,12 +182,12 @@ function HostNode() {
         <meshBasicMaterial color="#ffffff" transparent opacity={0.15} side={THREE.DoubleSide} />
       </mesh>
 
-      <Html distanceFactor={8} position={[0, -0.65, 0]} center>
-        <div className="bg-slate-950/85 border border-white/10 px-3 py-1.5 rounded text-center select-none font-mono text-[9px] text-slate-400 backdrop-blur-sm shadow-xl min-w-[90px]">
-          <div className="font-bold text-white tracking-widest text-[10px]">HOST</div>
-          <div className="text-slate-300">127.0.0.1</div>
-          <div className="text-[7px] text-slate-500 uppercase tracking-widest mt-0.5">Your Machine</div>
-        </div>
+      <Html
+        distanceFactor={8}
+        position={[0, -0.65, 0]}
+        center
+      >
+        <HostCard />
       </Html>
     </group>
   );
@@ -215,6 +234,8 @@ function ServiceNode({
   const velocity = useRef(new THREE.Vector3(0, 0, 0));
   const [dragging, setDragging] = useState(false);
 
+  const intensity = useContext(IntensityCtx);
+
   useFrame(({ clock, raycaster }) => {
     if (!meshRef.current || !lineRef.current) return;
 
@@ -229,8 +250,8 @@ function ServiceNode({
         currentPos.copy(planeIntersection);
       }
     } else {
-      // Orbit coordinate mapping
-      const angle = t * speed + phase;
+      // Orbit coordinate mapping — speed scaled by scan intensity
+      const angle = t * (speed * intensity.orbitSpeedMultiplier) + phase;
       const targetX = Math.cos(angle) * orbitRadius;
       const targetZ = Math.sin(angle) * orbitRadius;
       const targetY = Math.sin(t * 1.5 + index) * 0.15;
@@ -247,9 +268,9 @@ function ServiceNode({
     const points = [new THREE.Vector3(0, 0, 0), currentPos];
     lineRef.current.geometry.setFromPoints(points);
 
-    // Pulse energy path lines
+    // Pulse energy path lines — boosted by connectionOpacityBoost during assessment
     if (lineRef.current.material instanceof THREE.LineBasicMaterial) {
-      lineRef.current.material.opacity = 0.15 + Math.sin(t * 3.5 + index) * 0.15;
+      lineRef.current.material.opacity = 0.15 + Math.sin(t * 3.5 + index) * 0.15 + intensity.connectionOpacityBoost;
     }
 
     // Pulse node emissive glow
@@ -386,13 +407,20 @@ export default function SpatialTopology({
   connections = [],
   onNodeClick,
   activeNodeId = null,
+  isScanning = false,
+  scanPhase = "",
+  scanProgress: _scanProgress = 0,
 }: SpatialTopologyProps) {
   const active = connections.length > 0 ? connections : MOCK_CONNECTIONS;
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
 
+  // Derive scan intensity from scanDirector
+  const scanStatus: ScanStatus = isScanning ? "running" : "idle";
+  const intensity = getTopologyIntensity(scanStatus, scanPhase);
+
   return (
     <div className="flex flex-col lg:flex-row w-full justify-between items-stretch h-full relative z-10 pt-24 pb-20 gap-8 px-margin-desktop select-none">
-      
+
       {/* Left Column: Briefing Panel (35% width) */}
       <div className="w-full lg:w-[35%] flex flex-col justify-between py-6 text-left z-20">
         <div>
@@ -435,7 +463,7 @@ export default function SpatialTopology({
         </div>
 
         <div>
-          <button 
+          <button
             onClick={() => onNodeClick?.("mysqld-3306", "mysqld")}
             className="group px-8 py-4 rounded-full font-mono text-[9px] font-bold bg-white text-slate-950 hover:bg-slate-200 transition-all duration-300 uppercase tracking-widest flex items-center gap-3 shadow-[0_0_15px_rgba(255,255,255,0.06)]"
           >
@@ -448,8 +476,9 @@ export default function SpatialTopology({
       {/* Right Column: R3F Canvas Container (65% width) */}
       <div className="w-full lg:w-[65%] h-[420px] lg:h-auto min-h-[480px] relative rounded-3xl border border-white/[0.03] bg-slate-950/20 backdrop-blur-md overflow-hidden z-10 flex items-stretch">
         <div className="w-full h-full relative flex-1">
-          
+
           <Canvas camera={{ position: [0, 3, 6], fov: 50 }}>
+            <IntensityCtx.Provider value={intensity}>
             {/* Ambient + volumetric lighting */}
             <ambientLight intensity={0.45} />
             <pointLight position={[0, 4, 4]} intensity={0.8} />
@@ -473,9 +502,10 @@ export default function SpatialTopology({
                 activeNodeId={activeNodeId}
                 hoveredNodeId={hoveredNodeId}
                 onHover={setHoveredNodeId}
-                onClick={onNodeClick || (() => {})}
+                onClick={onNodeClick || (() => { })}
               />
             ))}
+            </IntensityCtx.Provider>
           </Canvas>
 
           {/* Mini Live Tag overlay */}

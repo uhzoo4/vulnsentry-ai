@@ -5,6 +5,7 @@ interface MachineNarrativeProps {
   scanProgress?: number; // 0 to 100
   isScanning?: boolean;
   activeScrollIndex?: number;
+  scanPhase?: "discovery" | "assessment" | "correlation" | "";
 }
 
 interface TelemetryItem {
@@ -32,6 +33,7 @@ export default function MachineNarrative({
   scanProgress = 0,
   isScanning = false,
   activeScrollIndex,
+  scanPhase: _scanPhase = "",
 }: MachineNarrativeProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
