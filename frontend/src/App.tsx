@@ -1,5 +1,6 @@
 // src/App.tsx
 import React, { useState, useEffect, useRef } from "react";
+import { Analytics } from "@vercel/analytics/react";
 import DelaunayBackground from "./components/DelaunayBackground";
 import HeroThreatCard from "./components/HeroThreatCard";
 import MachineNarrative from "./components/MachineNarrative";
@@ -553,6 +554,7 @@ export default function App() {
       </div>
 
       {isBooting && <SystemBootScreen onComplete={() => setIsBooting(false)} />}
+      <Analytics />
     </div>
   );
 }
